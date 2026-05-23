@@ -1,0 +1,60 @@
+# =============================================================================
+# MagicStream .gitignore
+# =============================================================================
+# 遵循的原则：
+#   1. 编译产物和构建产物不提交（人人都能本地编译）
+#   2. 配置文件中含密钥的不提交（.env, config.yaml）
+#   3. 运行时数据不提交（视频文件、数据库文件、转码产物）
+#   4. IDE 配置不提交（每个人用不同的编辑器）
+# =============================================================================
+
+# --- Go 编译产物 ---
+# Go 编译生成的二进制文件（文件名由 module 名或 -o 参数决定）
+/magicstream.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# --- 测试与覆盖率 ---
+coverage.out
+coverage.html
+*.test
+*.prof
+
+# --- 依赖 ---
+# vendor 目录是 go mod vendor 的产物，一般通过 go.sum 锁版本即可
+vendor/
+
+# --- 环境变量文件（含敏感信息）---
+.env
+
+# --- 实际配置文件（开发者在模板基础上修改——含密钥）---
+configs/config.yaml
+
+# --- 运行时数据 ---
+# data/ 下包含：上传的视频、转码产物（m3u8+TS）、直播临时分片
+# 这些都是运行时产生的，不是源码的一部分
+data/
+
+# --- IDE 和编辑器 ---
+.idea/          # JetBrains (GoLand, IntelliJ)
+.claude         #
+.vscode/        # Visual Studio Code
+*.swp           # Vim 交换文件
+*.swo           # Vim 交换文件
+*~               # Vim/Emacs 备份文件
+.DS_Store       # macOS Finder 元数据
+Thumbs.db       # Windows 缩略图缓存
+
+# --- 临时文件 ---
+tmp/
+temp/
+*.tmp
+*.log
+
+# --- 前端（阶段 8 加入）---
+web/node_modules/
+web/dist/
+web/.env.local
