@@ -1,6 +1,6 @@
 -- 1. 用户表(Users)
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KRY,            -- UUID v7 (应用层生成),按时间排序
+    id UUID PRIMARY KEY,            -- UUID v7 (应用层生成),按时间排序
     username VARCHAR(64) NOT NULL,  -- 用户名(用于登录、展示、@提及)
     email VARCHAR(255) NOT NULL,    -- 邮箱(用于登录、通知、找回密码)
     password_hash VARCHAR(255) NOT NULL,    -- bcrypt 哈希(永远不序列化到 JSON 响应中)
