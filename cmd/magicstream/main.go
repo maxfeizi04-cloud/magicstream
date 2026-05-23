@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxfeizi04-cloud/magicstream/internal/store/pg"
 	"github.com/maxfeizi04-cloud/magicstream/internal/util"
 )
 
@@ -27,6 +30,22 @@ func main() {
 	log.Printf("  数据目录: %s", cfg.Storage.DataDir)
 
 	// 2. 初始化数据库连接
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	log.Println("正在连接数据库...")
+	pool, err := pg.Connect(ctx, cfg.Database)
+	if err != nil {
+		log.Fatalf("数据库连接失败: %v", err)
+	}
+	defer pool.Close()
+	log.Printf("数据库连接成功")
+
+	log.Println("正在执行数据库迁移...")
+	if err := pg.Migrate(ctx, pool, "scripts/schema.sql"); err != nil {
+		log.Fatalf("数据库迁移失败: %v", err)
+	}
+	log.Printf("数据库迁移完成")
 
 	// 3. 注册路由
 	r := gin.Default()

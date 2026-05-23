@@ -25,6 +25,9 @@ services:
     image: redis:7-alpine
     container_name: magicstream-redis
     restart: unless-stopped
+    # --appendonly yes 开启 AOF（Append Only File）持久化。
+    # 开发环境也建议开启，因为 Redis 重启后数据才不会丢失。
+    # 但如果你希望每次重启都是干净状态，可以删除此配置。
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
