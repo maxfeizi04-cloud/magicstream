@@ -36,6 +36,9 @@ type UserStore interface {
 
 	// Update 更新用户信息
 	Update(ctx context.Context, user *model.User) error
+
+	// IncrementTokenVersion 递增用户的 token 版本号, 使所有旧 refresh token 失效
+	IncrementTokenVersion(ctx context.Context, id uuid.UUID) error
 }
 
 // userStore 是 UserStore 的 pgx 实现
@@ -51,12 +54,13 @@ func NewUserStore(pool *pgxpool.Pool) UserStore {
 // Create 插入新用户并返回数据库生成的字段(id, create_at, update_at)
 func (s *userStore) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (username, email, password_hash, avatar_url, role) 
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at, updated_at
+		INSERT INTO users (id, username, email, password_hash, avatar_url, role)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING token_version, created_at, updated_at
 		`
 
 	row := s.pool.QueryRow(ctx, query,
+		user.ID,
 		user.Username,
 		user.Email,
 		user.PasswordHash,
@@ -64,7 +68,7 @@ func (s *userStore) Create(ctx context.Context, user *model.User) error {
 		user.Role,
 	)
 
-	err := row.Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+	err := row.Scan(&user.TokenVersion, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -74,7 +78,7 @@ func (s *userStore) Create(ctx context.Context, user *model.User) error {
 // GetByID 通过主键查找用户
 func (s *userStore) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, avatar_url, role, created_at, updated_at
+		SELECT id, username, email, password_hash, avatar_url, role, token_version, created_at, updated_at
 		FROM users
 		WHERE id = $1
 `
@@ -86,6 +90,7 @@ func (s *userStore) GetByID(ctx context.Context, id uuid.UUID) (*model.User, err
 		&user.PasswordHash,
 		&user.AvatarURL,
 		&user.Role,
+		&user.TokenVersion,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -101,7 +106,7 @@ func (s *userStore) GetByID(ctx context.Context, id uuid.UUID) (*model.User, err
 // GetByEmail 通过邮箱查找用户
 func (s *userStore) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, avatar_url, role, created_at, updated_at 
+		SELECT id, username, email, password_hash, avatar_url, role, token_version, created_at, updated_at
 		FROM users
 		WHERE email = $1`
 
@@ -113,6 +118,7 @@ func (s *userStore) GetByEmail(ctx context.Context, email string) (*model.User, 
 		&user.PasswordHash,
 		&user.AvatarURL,
 		&user.Role,
+		&user.TokenVersion,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -128,7 +134,7 @@ func (s *userStore) GetByEmail(ctx context.Context, email string) (*model.User, 
 // GetByUsername 通过用户名查找用户
 func (s *userStore) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, avatar_url, role, created_at, updated_at
+		SELECT id, username, email, password_hash, avatar_url, role, token_version, created_at, updated_at
 		FROM users
 		WHERE username = $1
 		`
@@ -141,6 +147,7 @@ func (s *userStore) GetByUsername(ctx context.Context, username string) (*model.
 		&user.PasswordHash,
 		&user.AvatarURL,
 		&user.Role,
+		&user.TokenVersion,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -189,6 +196,14 @@ func (s *userStore) Update(ctx context.Context, user *model.User) error {
 	}
 	return nil
 
+}
+
+// IncrementTokenVersion 递增用户的 token 版本号, 使所有旧 refresh token 失效。
+// 用于 refresh token 轮换时的复用检测。
+func (s *userStore) IncrementTokenVersion(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE users SET token_version = token_version + 1 WHERE id = $1`
+	_, err := s.pool.Exec(ctx, query, id)
+	return err
 }
 
 // 确保 userStore 实现了 UserStore 接口。

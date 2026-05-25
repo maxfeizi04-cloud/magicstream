@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
     display_name VARCHAR(100) NOT NULL DEFAULT '', -- 显示名称（可与 username 不同，支持中文）
     avatar_url TEXT NOT NULL DEFAULT '',        -- 头像 URL (可为空,前端显示默认头像)
     role VARCHAR(16) NOT NULL DEFAULT 'user',   -- 角色: user (普通用户) / admin (管理员)
+    token_version INT NOT NULL DEFAULT 0,       -- Token 版本号, refresh 轮换时 +1, 用于检测 token 重用
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     -- 唯一约束：用户名和邮箱全局唯一
     CONSTRAINT uq_users_username UNIQUE (username),
     CONSTRAINT uq_users_email unique (email)

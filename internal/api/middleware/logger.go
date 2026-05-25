@@ -60,6 +60,7 @@ func Logger() gin.HandlerFunc {
 			Str("user_agent", c.Request.UserAgent()).
 			Msg("HTTP 请求开始")
 
+		c.Next()
 		// 6. 记录请求完成
 		duration := time.Since(start)
 		status := c.Writer.Status()

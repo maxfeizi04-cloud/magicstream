@@ -114,11 +114,12 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 		}
 		return
 	}
-	maxAge := int(pair.RefreshExp.Sub(time.Now()).Seconds())
+	accessMaxAge := int(time.Until(pair.AccessExp).Seconds())
+	refreshMaxAge := int(time.Until(pair.RefreshExp).Seconds())
 	c.SetCookie(
 		"refresh_token",
 		pair.RefreshToken,
-		maxAge,
+		refreshMaxAge,
 		"/api/v1/auth/refresh",
 		"",
 		false, // secure（开发环境 false，生产 true）
@@ -130,7 +131,7 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"user":         user,
 		"access_token": pair.AccessToken,
-		"expires_in":   maxAge,
+		"expires_in":   accessMaxAge,
 	})
 }
 
@@ -157,6 +158,12 @@ func (h *AuthHandler) HandleRefresh(c *gin.Context) {
 		refreshTokenStr,
 	)
 	if err != nil {
+		if errors.Is(err, service.ErrTokenReused) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "检测到 token 重复使用, 请重新登录",
+			})
+			return
+		}
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"error": "登录已过期,请重新登录",
 		})
@@ -164,11 +171,12 @@ func (h *AuthHandler) HandleRefresh(c *gin.Context) {
 	}
 
 	// 4. 设置新的 Refresh Token Cookie
-	maxAge := int(pair.RefreshExp.Sub(time.Now()).Seconds())
+	accessMaxAge := int(time.Until(pair.AccessExp).Seconds())
+	refreshMaxAge := int(time.Until(pair.RefreshExp).Seconds())
 	c.SetCookie(
 		"refresh_token",
 		pair.RefreshToken,
-		maxAge,
+		refreshMaxAge,
 		"/api/v1/auth/refresh",
 		"",
 		false,
@@ -177,6 +185,6 @@ func (h *AuthHandler) HandleRefresh(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": pair.AccessToken,
-		"expires_in":   maxAge,
+		"expires_in":   accessMaxAge,
 	})
 }

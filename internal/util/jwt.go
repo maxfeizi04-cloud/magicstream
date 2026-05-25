@@ -13,8 +13,9 @@ import (
 // Claims 是 JWT 的自定义负载
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID string `json:"uid"`
-	Role   string `json:"rol"`
+	UserID       string `json:"uid"`
+	Role         string `json:"rol"`
+	TokenVersion int    `json:"tv"` // 仅 refresh token 携带, 用于检测 token 复用
 }
 
 // TokenPair 是一对 access + refresh token
@@ -50,18 +51,18 @@ func GenerateAccessToken(userID uuid.UUID, role, secret string, ttl time.Duratio
 }
 
 // GenerateRefreshToken 生成长期刷新令牌
-// 返回: token 字符串、过期时间、错误
-func GenerateRefreshToken(userID uuid.UUID, secret string, ttl time.Duration) (string, time.Time, error) {
+// tokenVersion 用于检测 token 复用: 每次刷新时版本号 +1
+func GenerateRefreshToken(userID uuid.UUID, tokenVersion int, secret string, ttl time.Duration) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(ttl)
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt), // exp — 过期时间
-			IssuedAt:  jwt.NewNumericDate(now),       // iat — 签发时间
-			Issuer:    "magicstream",                 // iss — 签发者
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "magicstream",
 		},
-		UserID: userID.String(),
-		// 不包含 Role —— 刷新时从数据库重新读取，保证角色信息是最新的
+		UserID:       userID.String(),
+		TokenVersion: tokenVersion,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(secret))

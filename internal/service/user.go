@@ -33,6 +33,7 @@ var (
 	ErrUsernameAlreadyExists = errors.New("该用户名已被使用")
 	ErrInvalidCredentials    = errors.New("邮箱或密码错误")
 	ErrUserNotFound          = errors.New("用户不存在")
+	ErrTokenReused           = errors.New("refresh token 已被使用, 疑似 token 泄露")
 )
 
 // UserServiceConfig 是 UserService 的运行时配置
@@ -87,12 +88,17 @@ func (s *UserService) Register(ctx context.Context, username, email, password st
 	}
 
 	// 4. 创建用户
+	userID, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
 	user := &model.User{
+		ID:           userID,
 		Username:     username,
 		Email:        email,
 		PasswordHash: hash,
-		Role:         model.RoleUser, // 默认角色
-		AvatarURL:    "",             // 用户可在设置中上传头像
+		Role:         model.RoleUser,
+		AvatarURL:    "",
 	}
 
 	if err := s.store.Create(ctx, user); err != nil {
@@ -132,7 +138,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 	}
 
 	refreshToken, refreshExp, err := util.GenerateRefreshToken(
-		user.ID, s.config.RefreshSecret, s.config.RefreshTTL,
+		user.ID, user.TokenVersion, s.config.RefreshSecret, s.config.RefreshTTL,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -147,7 +153,8 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 	return user, pair, nil
 }
 
-// RefreshToken 使用 Refresh Token 换取新的 token pair
+// RefreshToken 使用 Refresh Token 换取新的 token pair。
+// 包含复用检测: token 携带的版本号必须与数据库中当前版本一致, 否则拒绝。
 func (s *UserService) RefreshToken(ctx context.Context, refreshTokenStr string) (*util.TokenPair, error) {
 	// 1. 验证旧 refresh token
 	claims, err := util.ValidateRefreshToken(refreshTokenStr, s.config.RefreshSecret)
@@ -155,8 +162,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 		return nil, err
 	}
 
-	// 2. 从数据库重新读取用户(获取最新角色)
-	// 注意：claims.UserID 是 string，需要解析为 uuid.UUID
+	// 2. 从数据库重新读取用户(获取最新角色和 token 版本)
 	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
 		return nil, err
@@ -170,7 +176,18 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 		return nil, ErrUserNotFound
 	}
 
-	// 3. 生成新的 token pair (轮换)
+	// 3. Token 复用检测: 版本号不匹配说明此 token 已被使用过
+	if claims.TokenVersion != user.TokenVersion {
+		return nil, ErrTokenReused
+	}
+
+	// 4. 递增版本号, 使当前及所有旧 token 立即失效
+	if err := s.store.IncrementTokenVersion(ctx, userID); err != nil {
+		return nil, err
+	}
+	user.TokenVersion++
+
+	// 5. 生成新的 token pair (轮换), 携带新版本号
 	accessToken, accessExp, err := util.GenerateAccessToken(
 		user.ID, user.Role, s.config.AccessSecret, s.config.AccessTTL,
 	)
@@ -179,7 +196,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 	}
 
 	newRefreshToken, refreshExp, err := util.GenerateRefreshToken(
-		user.ID, s.config.RefreshSecret, s.config.RefreshTTL,
+		user.ID, user.TokenVersion, s.config.RefreshSecret, s.config.RefreshTTL,
 	)
 	if err != nil {
 		return nil, err

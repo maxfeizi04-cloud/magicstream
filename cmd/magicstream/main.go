@@ -33,6 +33,7 @@ import (
 )
 
 func main() {
+	util.InitLogger(true)
 	// 1. 加载配置
 	cfg, err := util.Load("configs/config.yaml")
 	if err != nil {

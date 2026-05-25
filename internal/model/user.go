@@ -14,6 +14,7 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	AvatarURL    string    `json:"avatar_url,omitempty"`
 	Role         string    `json:"role"`
+	TokenVersion int       `json:"-"` // Token 版本号, refresh 轮换时递增, 用于检测重用
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

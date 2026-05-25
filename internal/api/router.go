@@ -72,10 +72,13 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 	// --- 公开路由: 认证接口 ---
 	authGroup := r.Group("/api/v1/auth")
 
-	// 注册接口
-	authGroup.POST("/register", deps.AuthHandler.HandlerRegister)
+	// 注册接口 (3次/分钟，防止批量注册垃圾账户)
+	authGroup.POST("/register",
+		middleware.RateLimit(deps.RedisClient, 3, 1*time.Minute),
+		deps.AuthHandler.HandlerRegister,
+	)
 
-	// 登录接口
+	// 登录接口 (5次/分钟，防止暴力破解)
 	authGroup.POST("/login",
 		middleware.RateLimit(deps.RedisClient, 5, 1*time.Minute),
 		deps.AuthHandler.HandleLogin,

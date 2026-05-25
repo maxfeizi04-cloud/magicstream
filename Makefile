@@ -100,7 +100,7 @@ fmt:
 # =========================================================================
 
 # clean: 彻底清理一切。
-# docker-compose down -v：
+# docker compose down -v：
 #   -v 删除所有数据卷（pgdata + redisdata），数据库和缓存完全清空。
 # rm -rf ./data：删除本地的视频/转码/上传文件。
 # rm -f coverage.*：删除测试覆盖率文件。

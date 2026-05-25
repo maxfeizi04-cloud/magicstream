@@ -140,7 +140,7 @@ func Load(configPath string) (*Config, error) {
 func (c *Config) Validate() error {
 	// --- 服务器端口号验证 ---
 	// 端口号范围 1- 65535
-	if c.Server.HTTPPort <= 0 || c.Server.RTMPPort > 65535 {
+	if c.Server.HTTPPort <= 0 || c.Server.HTTPPort > 65535 {
 		return fmt.Errorf("server.http_port 必须在 1-65535 之间,当前值: %d", c.Server.HTTPPort)
 	}
 	if c.Server.RTMPPort <= 0 || c.Server.RTMPPort > 65535 {
@@ -149,7 +149,7 @@ func (c *Config) Validate() error {
 
 	// HTTP 和 RTMP 不能占用同一端口
 	if c.Server.HTTPPort == c.Server.RTMPPort {
-		return fmt.Errorf("HTTP 端口(%d) 和 RTMP 端口(%d) 不能相同", c.Server.RTMPPort, c.Server.RTMPPort)
+		return fmt.Errorf("HTTP 端口(%d) 和 RTMP 端口(%d) 不能相同", c.Server.HTTPPort, c.Server.RTMPPort)
 	}
 
 	// --- 数据库配置验证 ---
