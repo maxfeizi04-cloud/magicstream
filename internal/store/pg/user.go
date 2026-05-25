@@ -74,7 +74,7 @@ func (s *userStore) Create(ctx context.Context, user *model.User) error {
 // GetByID 通过主键查找用户
 func (s *userStore) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, username, password_hash, avatar_url, role, created_at, updated_at FROM users WHERE id = $1
+		SELECT id, username, email, password_hash, avatar_url, role, created_at, updated_at
 		FROM users
 		WHERE id = $1
 `
@@ -101,7 +101,7 @@ func (s *userStore) GetByID(ctx context.Context, id uuid.UUID) (*model.User, err
 // GetByEmail 通过邮箱查找用户
 func (s *userStore) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SElECT id, username, email, password_hash, avatar_url, role, created_at, updated_at 
+		SELECT id, username, email, password_hash, avatar_url, role, created_at, updated_at 
 		FROM users
 		WHERE email = $1`
 
@@ -158,12 +158,12 @@ func (s *userStore) Update(ctx context.Context, user *model.User) error {
 	query := `
 		UPDATE users
 		SET 
-		    username = COALESE(NULLIF($2,''),username), 
+		    username = COALESCE(NULLIF($2,''),username), 
 		    email = COALESCE(NULLIF($3,''),email), 
 		    password_hash = COALESCE(NULLIF($4,''),password_hash), 
 		    avatar_url = COALESCE(NULLIF($5,''),avatar_url),
 		    updated_at = NOW()
-	    WHERE ID = $1
+	    WHERE id = $1
 	    RETURNING id, username, email, password_hash, avatar_url, role, created_at, updated_at
 	    `
 

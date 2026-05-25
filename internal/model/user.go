@@ -29,9 +29,9 @@ const (
 // RegisterRequest 是注册接口的请求体
 // 使用 binding tag 做输入校验,Gin 的ShouldBindJSON 会自动执行
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=4,max=32"`
+	Username string `json:"username" binding:"required,min=3,max=32"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6,max=32"`
+	Password string `json:"password" binding:"required,min=6,max=128"`
 }
 
 // LoginRequest 是登录接口的请求体
