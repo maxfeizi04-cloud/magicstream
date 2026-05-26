@@ -49,7 +49,7 @@ func (s *FileStore) SaveUpload(ctx context.Context, reader io.Reader, dir, filen
 	fullPath = filepath.Clean(fullPath)
 
 	// 获取 baseDir 的绝对路径以做精确前缀比较
-	absBaseDir, err := filepath.Abs(fullPath)
+	absBaseDir, err := filepath.Abs(s.baseDir)
 	if err != nil {
 		return "", 0, fmt.Errorf("resolve base dir: %w", err)
 	}
@@ -90,14 +90,17 @@ func (s *FileStore) SaveUpload(ctx context.Context, reader io.Reader, dir, filen
 		return "", 0, fmt.Errorf("write file %q: %w", fullPath, err)
 	}
 
-	// 检查是否被 LImitReader 截断
-	if s.maxSize > 0 && written > s.maxSize {
-		// 再读 1 字节确认是否真的超过限制
+	// 检查是否达到 LimitReader 上限（即文件可能超出限制）
+	if s.maxSize > 0 && written >= s.maxSize {
 		oneMore := make([]byte, 1)
 		n, readErr := reader.Read(oneMore)
-		if n > 0 || readErr != nil {
+		if n > 0 {
 			os.Remove(fullPath)
-			return "", 0, fmt.Errorf("file exceeds maximum size of %d bytes: %v", s.maxSize, readErr)
+			return "", 0, fmt.Errorf("file exceeds maximum size of %d bytes", s.maxSize)
+		}
+		if readErr != nil && readErr != io.EOF {
+			os.Remove(fullPath)
+			return "", 0, fmt.Errorf("read error after size limit: %w", readErr)
 		}
 	}
 	return fullPath, written, nil
@@ -111,7 +114,7 @@ func (s *FileStore) DeleteDir(dir string) error {
 	fullPath := filepath.Join(s.baseDir, cleanDir)
 	fullPath = filepath.Clean(fullPath)
 
-	absBaseDir, err := filepath.Abs(fullPath)
+	absBaseDir, err := filepath.Abs(s.baseDir)
 	if err != nil {
 		return fmt.Errorf("resolve base dir: %w", err)
 	}

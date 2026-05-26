@@ -46,10 +46,12 @@ type Dependencies struct {
 	RedisClient *magicredis.Client
 
 	// Service
-	UserService *service.UserService
+	UserService  *service.UserService
+	VideoService *service.VideoService
 
 	// Handlers
-	AuthHandler *handler.AuthHandler
+	AuthHandler  *handler.AuthHandler
+	VideoHandler *handler.VideoHandler
 }
 
 // SetupRouter 创建并配置 Gin 路由引擎
@@ -99,6 +101,14 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 			c.JSON(200, gin.H{"message": "更新用户信息接口 (待实现)"})
 
 		})
+		videos := protected.Group("/videos")
+		{
+			videos.POST("", deps.VideoHandler.HandleCreate)
+			videos.GET("", deps.VideoHandler.HandleList)
+			videos.GET("/:id", deps.VideoHandler.HandleGet)
+			videos.PUT("/:id", deps.VideoHandler.HandleUpdate)
+			videos.DELETE("/:id", deps.VideoHandler.HandleDelete)
+		}
 
 		// --- 管理员路由组 ---
 		admin := protected.Group("/admin")

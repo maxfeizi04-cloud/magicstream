@@ -54,7 +54,7 @@ type CreateVideoRequest struct {
 
 // UpdateVideoRequest 是 PUT /api/v1/videos/:id 的请求体
 type UpdateVideoRequest struct {
-	Title       *string `json:"title" binding:"required,min=1,max=200"`
+	Title       *string `json:"title" binding:"omitempty,min=1,max=200"`
 	Description *string `json:"description" binding:"max=5000"`
 }
 
@@ -76,8 +76,8 @@ type VideoResponse struct {
 // VideoListResponse 是视频列表接口的响应结构
 // Total 字段用于前端分页器显示总页数
 type VideoListResponse struct {
-	Videos []Video `json:"videos"`
-	Total  int     `json:"total"`
+	Videos []VideoResponse `json:"videos"`
+	Total  int             `json:"total"`
 }
 
 // ToResponse 将领域模型转换对外响应结构

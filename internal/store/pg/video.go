@@ -11,7 +11,7 @@ import (
 	"github.com/maxfeizi04-cloud/magicstream/internal/model"
 )
 
-// VideoStore 定义商品存储层的所有操作
+// VideoStore defines all operations for video persistence.
 type VideoStore interface {
 	// Create 创建一条视频记录,返回完整的 Video (含数据库生成的 id,时间戳)
 	Create(ctx context.Context, video *model.Video) error
@@ -25,7 +25,7 @@ type VideoStore interface {
 	// Update 更新视频的可编辑字段
 	Update(ctx context.Context, video *model.Video) error
 
-	// Delete 生成一条视频记录
+	// Delete 删除一条视频记录
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// IncrementViewCount 原子递增播放计数
@@ -59,10 +59,10 @@ func (s *videoStore) Create(ctx context.Context, video *model.Video) error {
 	}
 
 	query := `
-		INSERT INTO video (id, user_id, title, description, file_name,file_size,status)
-		Values ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO videos (id, user_id, title, description, file_name, file_size, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, user_id, title, description, file_name, file_size, 
-		durantion, width, height, status, view_count, created_at, updated_at`
+		duration, width, height, status, view_count, created_at, updated_at`
 
 	row := s.pool.QueryRow(ctx, query,
 		video.ID,
@@ -80,9 +80,11 @@ func (s *videoStore) Create(ctx context.Context, video *model.Video) error {
 		&video.Description,
 		&video.FileName,
 		&video.FileSize,
-		&video.Status,
+		&video.Duration,
 		&video.Width,
 		&video.Height,
+		&video.Status,
+		&video.ViewCount,
 		&video.CreatedAt,
 		&video.UpdatedAt)
 }
@@ -113,7 +115,7 @@ func (s *videoStore) GetByID(ctx context.Context, id uuid.UUID) (*model.Video, e
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("video %s: %w", id, model.ErrNotFound)
+			return nil, fmt.Errorf("video %s: %w", id, model.ErrNotFound("video"))
 		}
 		return nil, fmt.Errorf("query video by id: %w", err)
 	}
@@ -126,7 +128,7 @@ func (s *videoStore) List(ctx context.Context, params model.ListVideoParams) ([]
 
 	query := `
 		SELECT id, user_id, title, description, file_name, file_size,
-		duration, width, height, status, view_count, created_at, updated_at
+		duration, width, height, status, view_count, created_at, updated_at,
 		COUNT(*) OVER() AS total_count
 		FROM videos
 		WHERE ($1::uuid IS NULL OR user_id = $1)
@@ -225,9 +227,12 @@ func (s *videoStore) Update(ctx context.Context, video *model.Video) error {
 // 且状态变更通常伴随其他字段更新（如 duration, width, height）。
 func (s *videoStore) UpdateStatus(ctx context.Context, id uuid.UUID, status model.VideoStatus) error {
 	query := `UPDATE videos SET status = $1, updated_at = NOW() WHERE id = $2`
-	_, err := s.pool.Exec(ctx, query, status, id)
+	tag, err := s.pool.Exec(ctx, query, status, id)
 	if err != nil {
 		return fmt.Errorf("update video status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("video %s: %w", id, model.ErrNotFound("video"))
 	}
 	return nil
 }
@@ -239,9 +244,12 @@ func (s *videoStore) UpdateMeta(ctx context.Context, id uuid.UUID, duration floa
 		UPDATE videos
 		SET duration = $1, width = $2, height = $3, updated_at = NOW()
 		WHERE id = $4`
-	_, err := s.pool.Exec(ctx, query, duration, width, height, id)
+	tag, err := s.pool.Exec(ctx, query, duration, width, height, id)
 	if err != nil {
 		return fmt.Errorf("update video meta: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("video %s: %w", id, model.ErrNotFound("video"))
 	}
 	return nil
 }
@@ -256,7 +264,7 @@ func (s *videoStore) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete video: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("video %s: %w", id, model.ErrNotFound)
+		return fmt.Errorf("video %s: %w", id, model.ErrNotFound("video"))
 	}
 	return nil
 }
@@ -269,7 +277,7 @@ func (s *videoStore) IncrementViewCount(ctx context.Context, id uuid.UUID) error
 		return fmt.Errorf("increment video view count: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("video %s: %w", id, model.ErrNotFound)
+		return fmt.Errorf("video %s: %w", id, model.ErrNotFound("video"))
 	}
 	return nil
 }
